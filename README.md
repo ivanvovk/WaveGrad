@@ -20,7 +20,7 @@ WaveGrad is a conditional model for waveform generation through estimating gradi
 
 ## Setup
 
-1. Clone this repo
+1. Clone this repo:
 
 ```bash
 git clone https://github.com/ivanvovk/WaveGrad.git
