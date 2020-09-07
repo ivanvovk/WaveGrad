@@ -8,9 +8,11 @@ Implementation (PyTorch) of Google Brain's WaveGrad vocoder (paper: https://arxi
 * Uploaded an example of generated audio by current 50-iteration model. Unfortunately, there are some clicking artefacts on the edges of parallel sampling (checkout the last section of README for more details). Using parallel small segment sampling was my quick solution for the issue of when the model sees the mel sequence much longer than a training segment. If you have ideas how to resolve it, please share them by making a new issue. Also there is some hiss background noise. Working on fixing this problems.
 * Preparing pretrained checkpoints.
 
+#### Run-time factor
+
 |          Model         |  Stable  |   RTF (NVIDIA 2080 Ti), 22Khz   |
 |------------------------|----------|---------------------------------|
-| 1000 iterations Base   |   True   |              Bad :)             |
+| 1000 iterations Base   |   True   |          22.2 ± 0.144           |
 |  50 iterations Base    |   True   |          1.09 ± 0.023           |
 |  25 iterations Base    |   True   |          0.55 ± 0.011           |
 |  6 iterations Base     |   None   |          0.13 ± 0.005           |
