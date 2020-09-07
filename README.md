@@ -6,7 +6,7 @@ Implementation (PyTorch) of Google Brain's WaveGrad vocoder (paper: https://arxi
 * Conducting experiments on 6-iterations training.
 * Also preparing real-time factor (RTF) benchmarking.
 * Preparing pretrained checkpoints.
-* Preparing generated audio. Unfortunately, there is some clicking artefact on the edges of parallel sampling (checkout the last section of README for details). This was my quick solution for the issue of when the model sees the mel sequence longer than training segment. If you have ideas how to resolve it, please share it by making a new issue.
+* Uploaded current generated audios by 50-teration model. Unfortunately, there is some clicking artefact on the edges of parallel sampling (checkout the last section of README for details). This was my quick solution for the issue of when the model sees the mel sequence longer than training segment. If you have ideas how to resolve it, please share it by making a new issue. Also there is some hiss background noise. Working on fixing this problems.
 
 |         Model        | Stable |     RTF     |
 |:--------------------:|:------:|-------------|
@@ -40,7 +40,7 @@ cd WaveGrad
 
 ## Inference and generated audios
 
-Follow instructions provided in Jupyter notebook [`notebooks/inference.ipynb`](notebooks/inference.ipynb). Generated audios will be provided shortly.
+Follow instructions provided in Jupyter notebook [`notebooks/inference.ipynb`](notebooks/inference.ipynb). Current generated audios are provided in [`generated_sample`](generated_samples/) folder.
 
 ## Details, issues and comments
 
