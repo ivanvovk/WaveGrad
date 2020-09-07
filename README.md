@@ -3,7 +3,7 @@ Implementation (PyTorch) of Google Brain's WaveGrad vocoder (paper: https://arxi
 
 **Status** (contributing is welcome, share your ideas!):
 * **Stable versions: 25, 50 and 1000 iterations** with linear betas.
-* Conducting experiments on 6-iterations and 1000-iterations training.
+* Conducting experiments on 6-iterations training.
 * Also preparing real-time factor (RTF) benchmarking.
 * Preparing pretrained checkpoints.
 * Preparing generated audio. Unfortunately, there is some clicking artefact on the edges of parallel sampling (checkout the last section of README for details). This was my quick solution for the issue of when the model sees the mel sequence longer than training segment. If you have ideas how to resolve it, please share it by making a new issue.
