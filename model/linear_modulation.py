@@ -11,19 +11,21 @@ CRITICAL_MAX_PE_LENGTH=2000000
 
 
 class PositionalEncoding(BaseModule):
-    def __init__(self, n_channels, max_len):
+    def __init__(self, n_channels, max_len, dwnscaled_by):
         super(PositionalEncoding, self).__init__()
         self.n_channels = n_channels
         self.max_len = max_len
-        pe = self.build_matrix(self.n_channels, self.max_len)
+        self.dwnscaled_by = dwnscaled_by
+
+        pe = self.build_matrix(self.n_channels, self.max_len, self.dwnscaled_by)
         self.register_buffer('pe', pe)
 
-    def build_matrix(self, n_channels, max_len):
+    def build_matrix(self, n_channels, max_len, dwnscaled_by):
         pe = torch.zeros(max_len, n_channels, dtype=torch.float32)
         position = torch.arange(0, max_len, dtype=torch.float32).unsqueeze(1)
         div_term = (torch.arange(0, n_channels, 2).float() * (-math.log(10000.0) / n_channels)).exp()
-        pe[:, 0::2] = (position * div_term).sin()
-        pe[:, 1::2] = (position * div_term).cos()
+        pe[:, 0::2] = (position * div_term * dwnscaled_by).sin()
+        pe[:, 1::2] = (position * div_term * dwnscaled_by).cos()
         return pe.transpose(0, 1)
 
     def rescale_to_new_max_len(self, new_max_len):
@@ -32,7 +34,7 @@ class PositionalEncoding(BaseModule):
                 f'Rescaling PE to {new_max_len}, '
                 f'which is more than set CRITICAL_MAX_PE_LENGTH={CRITICAL_MAX_PE_LENGTH}.'
             )
-        self.pe = self.build_matrix(self.n_channels, new_max_len).to(self.pe)
+        self.pe = self.build_matrix(self.n_channels, new_max_len, self.dwnscaled_by).to(self.pe)
         self.max_len = new_max_len
 
     def forward(self, noise_level, length):
@@ -62,7 +64,8 @@ class FeatureWiseLinearModulation(BaseModule):
             torch.nn.LeakyReLU(0.2)
         ])
         self.positional_encoding = PositionalEncoding(
-            in_channels, DEFAULT_MAX_PE_LENGTH//input_dscaled_by
+            in_channels, DEFAULT_MAX_PE_LENGTH//input_dscaled_by,
+            input_dscaled_by
         )
         self.scale_conv = Conv1dWithInitialization(
             in_channels=in_channels,

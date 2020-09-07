@@ -17,6 +17,7 @@ class WaveGrad(BaseModule):
     Note:
         * Prefer using `sample_subregions_parallel` method to generate samples.
           More details in `sample_subregions_parallel` method docs.
+          Also it is set as default `forward` model method.
     """
     def __init__(self, config):
         super(WaveGrad, self).__init__()
@@ -149,7 +150,7 @@ class WaveGrad(BaseModule):
         :return ys (list of torch.Tensor) (if store_intermediate_states=True)
             or y_0 (torch.Tensor): predicted signals on every dynamics iteration of shape [B, T]
         """
-        # @TODO: make hops between splits to reduce clicks on endges.
+        # @TODO: determine how to solve positional encoding issue
         with torch.no_grad():
             splits = mels.split(self.mel_segment_length, dim=-1)
             recons = []
@@ -181,3 +182,8 @@ class WaveGrad(BaseModule):
         eps_recon = self.nn(mels, y_noisy, continious_sqrt_alpha_cumprod)
         loss = torch.nn.L1Loss()(eps_recon, eps)
         return loss
+
+    def forward(self, mels, store_intermediate_states=False):
+        return self.sample_subregions_parallel(
+            mels, store_intermediate_states
+        )

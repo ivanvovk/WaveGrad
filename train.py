@@ -3,23 +3,14 @@ import json
 
 import torch
 from torch.utils.data import DataLoader
-from torchaudio.transforms import MelSpectrogram
+
+from datetime import datetime
 
 from logger import Logger
 from model import WaveGrad
-from data import AudioDataset
+from data import AudioDataset, MelSpectrogramFixed
+from benchmark import compute_rtf
 from utils import ConfigWrapper, show_message
-
-
-class MelSpectrogramFixed(torch.nn.Module):
-    """In order to remove stupid padding of torchaudio package + add log10 scale."""
-    def __init__(self, **kwargs):
-        super(MelSpectrogramFixed, self).__init__()
-        self.torchaudio_backend = MelSpectrogram(**kwargs)
-    
-    def forward(self, x):
-        outputs = self.torchaudio_backend(x)
-        return outputs[..., :-1].log10()
 
 
 def run(config, args):
@@ -116,16 +107,30 @@ def run(config, args):
                     audios = {}
                     specs = {}
                     test_l1_loss = 0
+                    average_rtf = 0
+
                     for index, test_sample in enumerate(test_batch):
                         test_sample = test_sample[None].cuda()
                         test_mel = mel_fn(test_sample.cuda())
-                        y_0_hat = model.sample_subregions_parallel(
-                            test_mel,
-                            store_intermediate_states=False
+
+                        start = datetime.now()
+                        y_0_hat = model.forward(
+                            test_mel, store_intermediate_states=False
                         )
+                        end = datetime.now()
+                        generation_time = (end - start).total_seconds()
+                        average_rtf += compute_rtf(
+                            y_0_hat, generation_time, config.data_config.sample_rate
+                        )
+
+                        test_l1_loss += torch.nn.L1Loss()(y_0_hat, test_sample).item()
+
                         audios[f'audio_{index}/predicted'] = y_0_hat.cpu().squeeze()
                         specs[f'mel_{index}/predicted'] = mel_fn(y_0_hat).cpu().squeeze()
-                        test_l1_loss += torch.nn.L1Loss()(y_0_hat, test_sample).item()
+
+                    average_rtf /= len(test_batch)
+                    show_message(f'Device: GPU. average_rtf={average_rtf}', verbose=args.verbose)
+
                     test_l1_loss /= len(test_batch)
                     loss_stats['l1_test_batch_loss'] = test_l1_loss
 

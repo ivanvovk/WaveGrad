@@ -2,6 +2,7 @@ import numpy as np
 
 import torch
 import torchaudio
+from torchaudio.transforms import MelSpectrogram
 
 from utils import parse_filelist
 
@@ -62,3 +63,14 @@ class AudioDataset(torch.utils.data.Dataset):
         for index in idx:
             test_batch.append(self.__getitem__(index))
         return test_batch
+
+
+class MelSpectrogramFixed(torch.nn.Module):
+    """In order to remove padding of torchaudio package + add log10 scale."""
+    def __init__(self, **kwargs):
+        super(MelSpectrogramFixed, self).__init__()
+        self.torchaudio_backend = MelSpectrogram(**kwargs)
+    
+    def forward(self, x):
+        outputs = self.torchaudio_backend(x)
+        return outputs[..., :-1].log10()
