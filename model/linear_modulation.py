@@ -8,6 +8,7 @@ from model.layers import Conv1dWithInitialization
 
 DEFAULT_MAX_PE_LENGTH=500000
 CRITICAL_MAX_PE_LENGTH=2000000
+LINEAR_SCALE=5000
 
 
 class PositionalEncoding(BaseModule):
@@ -46,7 +47,7 @@ class PositionalEncoding(BaseModule):
             )
             self.rescale_to_new_max_len(length)
         batch_size = noise_level.shape[0]
-        outputs = noise_level[..., None] + self.pe[:, :length].repeat(batch_size, 1, 1)
+        outputs = noise_level[..., None] + self.pe[:, :length].repeat(batch_size, 1, 1) / LINEAR_SCALE
         return outputs
 
 

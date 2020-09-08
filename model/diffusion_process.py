@@ -13,11 +13,6 @@ class WaveGrad(BaseModule):
     Implementation adopted from `Denoising Diffusion Probabilistic Models`
     repository (link: https://github.com/hojonathanho/diffusion,
     paper: https://arxiv.org/pdf/2006.11239.pdf).
-
-    Note:
-        * Prefer using `sample_subregions_parallel` method to generate samples.
-          More details in `sample_subregions_parallel` method docs.
-          Also it is set as default `forward` model method.
     """
     def __init__(self, config):
         super(WaveGrad, self).__init__()
@@ -139,29 +134,6 @@ class WaveGrad(BaseModule):
                 t -= 1
             return ys if store_intermediate_states else ys[-1]
 
-    def sample_subregions_parallel(self, mels, store_intermediate_states=False):
-        """
-        Generation from mel-spectrogram by splitting inputs into several parts and processing them in paralell.
-        Motivation is about the fact, that during training the model has seen only small segments of
-        speech, thus it will fail on longer sequences because of positional encoding (rememeber sin-cos visualization of PE).
-        Experiments have showed significant improvement in waveform generation using parallel generation.
-        :param mels (torch.Tensor): mel-spectrograms acoustic features of shape [B, n_mels, T//hop_length]
-        :param store_intermediate_states (bool, optional): whether to store dynamics trajectory or not
-        :return ys (list of torch.Tensor) (if store_intermediate_states=True)
-            or y_0 (torch.Tensor): predicted signals on every dynamics iteration of shape [B, T]
-        """
-        # @TODO: determine how to solve positional encoding issue
-        with torch.no_grad():
-            splits = mels.split(self.mel_segment_length, dim=-1)
-            recons = []
-            for split in splits:
-                outputs = self.sample(mels=split, store_intermediate_states=store_intermediate_states)
-                if store_intermediate_states:
-                    outputs = torch.stack(outputs)
-                recons.append(outputs)
-            final_outputs = torch.cat(recons, dim=-1)
-            return final_outputs
-
     def compute_loss(self, mels, y_0):
         """
         Computes loss between GT Gaussian noise and predicted noise by model from diffusion process.
@@ -184,6 +156,6 @@ class WaveGrad(BaseModule):
         return loss
 
     def forward(self, mels, store_intermediate_states=False):
-        return self.sample_subregions_parallel(
+        return self.sample(
             mels, store_intermediate_states
         )
