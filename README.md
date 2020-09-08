@@ -68,4 +68,4 @@ In progress.
 
 * [WaveGrad: Estimating Gradients for Waveform Generation](https://arxiv.org/pdf/2009.00713.pdf)
 * [Denoising Diffusion Probabilistic Models](https://arxiv.org/pdf/2006.11239.pdf)
-* [`Denoising Diffusion Probabilistic Models` repository](https://github.com/hojonathanho/diffusion), from which diffusion calculations have been adopted
+* [Denoising Diffusion Probabilistic Models repository](https://github.com/hojonathanho/diffusion), from which diffusion calculations have been adopted
