@@ -31,7 +31,23 @@ def load_latest_checkpoint(logdir, model, optimizer=None):
         map_location=lambda loc, storage: loc
     )
     iteration = d['iteration']
-    model.load_state_dict(d['model'])
+    valid_incompatible_unexp_keys = [
+        'betas',
+        'alphas',
+        'alphas_cumprod',
+        'alphas_cumprod_prev',
+        'sqrt_alphas_cumprod',
+        'sqrt_recip_alphas_cumprod',
+        'sqrt_recipm1_alphas_cumprod',
+        'posterior_log_variance_clipped',
+        'posterior_mean_coef1',
+        'posterior_mean_coef2'
+    ]
+    d['model'] = {
+        key: value for key, value in d['model'].items() \
+            if key not in valid_incompatible_unexp_keys
+    }
+    model.load_state_dict(d['model'], strict=False)
     if not isinstance(optimizer, type(None)):
         optimizer.load_state_dict(d['optimizer'])
     return model, optimizer, iteration

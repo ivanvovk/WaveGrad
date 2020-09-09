@@ -1,9 +1,5 @@
 {
     "model_config": {
-        "noise_schedule": {
-            "n_iter": 1000,
-            "betas_range": [1e-4, 0.005]
-        },
         "factors": [5, 5, 3, 2, 2],
         "upsampling_preconv_out_channels": 768,
         "upsampling_out_channels": [512, 512, 256, 128, 128],
@@ -30,11 +26,11 @@
         "n_mels": 80
     },
     "training_config": {
-        "logdir": "logs/1000iters",
+        "logdir": "logs/default",
         "continue_training": false,
         "train_filelist_path": "filelists/train.txt",
         "test_filelist_path": "filelists/test.txt",
-        "batch_size": 32,
+        "batch_size": 48,
         "segment_length": 7200,
         "lr": 1e-3,
         "grad_clip_threshold": 1,
@@ -42,6 +38,15 @@
         "scheduler_gamma": 0.9,
         "n_epoch": 100000000,
         "n_samples_to_test": 4,
-        "test_interval": 10
+        "test_interval": 1,
+
+        "training_noise_schedule": {
+            "n_iter": 1000,
+            "betas_range": [1e-6, 0.01]
+        },
+        "test_noise_schedule": {
+            "n_iter": 50,
+            "betas_range": [1e-6, 0.01]
+        }
     }
 }

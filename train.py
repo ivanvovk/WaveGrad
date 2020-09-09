@@ -39,12 +39,6 @@ def run(config, args):
         gamma=config.training_config.scheduler_gamma
     )
 
-    if config.training_config.continue_training:
-        show_message('Loading latest checkpoint to continue training...', verbose=args.verbose)
-        model, optimizer, iteration = logger.load_latest_checkpoint(model, optimizer)
-    else:
-        iteration = 0
-
     show_message('Initializing data loaders...', verbose=args.verbose)
     train_dataset = AudioDataset(config, training=True)
     train_dataloader = DataLoader(
@@ -55,6 +49,17 @@ def run(config, args):
     test_batch = test_dataset.sample_test_batch(
         config.training_config.n_samples_to_test
     )
+
+    if config.training_config.continue_training:
+        show_message('Loading latest checkpoint to continue training...', verbose=args.verbose)
+        model, optimizer, iteration = logger.load_latest_checkpoint(model, optimizer)
+        epoch_size = len(train_dataset) // config.training_config.batch_size
+        epoch_start = iteration // epoch_size
+    else:
+        iteration = 0
+        epoch_start = 0
+
+    # Log ground truth test batch
     audios = {
         f'audio_{index}/gt': audio
         for index, audio in enumerate(test_batch)
@@ -68,8 +73,12 @@ def run(config, args):
 
     show_message('Start training...', verbose=args.verbose)
     try:
-        for epoch in range(config.training_config.n_epoch):
-
+        for epoch in range(epoch_start, config.training_config.n_epoch):
+            # Training step
+            model.set_new_noise_schedule(
+                n_iter=config.training_config.training_noise_schedule.n_iter,
+                betas_range=config.training_config.training_noise_schedule.betas_range
+            )
             for batch in train_dataloader:
                 batch = batch.cuda()
                 mels = mel_fn(batch)
@@ -91,7 +100,12 @@ def run(config, args):
                 
                 iteration += 1
 
+            # Test step
             if epoch % config.training_config.test_interval == 0:
+                model.set_new_noise_schedule(
+                    n_iter=config.training_config.test_noise_schedule.n_iter,
+                    betas_range=config.training_config.test_noise_schedule.betas_range
+                )
                 with torch.no_grad():
                     # Calculate test set loss
                     test_loss = 0

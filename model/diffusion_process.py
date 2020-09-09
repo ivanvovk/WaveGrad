@@ -16,11 +16,24 @@ class WaveGrad(BaseModule):
     """
     def __init__(self, config):
         super(WaveGrad, self).__init__()
-        self.n_iter = config.model_config.noise_schedule.n_iter
-        self.betas_range = config.model_config.noise_schedule.betas_range
-        self.mel_segment_length = config.training_config.segment_length//config.data_config.hop_length
+        # Setup noise schedule
+        self.noise_schedule_is_set = False
 
-        betas = torch.linspace(self.betas_range[0], self.betas_range[1], steps=self.n_iter)
+        # Backbone neural network to model noise
+        self.total_factor = np.product(config.model_config.factors)
+        assert self.total_factor == config.data_config.hop_length, \
+            """Total factor-product should be equal to the hop length of STFT."""
+        self.nn = WaveGradNN(config)
+
+    def set_new_noise_schedule(self, n_iter, betas_range):
+        """
+        Sets sampling noise schedule. Authors in the paper showed
+        that WaveGrad supports variable noise schedules during inference.
+        Thanks to the continious noise level conditioning.
+        :param n_iter (int): number of iterations of Langevin dynamics
+        :param betas_range (set of floats): schedule parameters
+        """
+        betas = torch.linspace(betas_range[0], betas_range[1], steps=n_iter)
         alphas = 1 - betas
         alphas_cumprod = alphas.cumprod(dim=0)
         alphas_cumprod_prev = torch.cat([torch.FloatTensor([1]), alphas_cumprod[:-1]])
@@ -32,7 +45,7 @@ class WaveGrad(BaseModule):
 
         # Calculations for posterior q(y_n|y_0)
         sqrt_alphas_cumprod = alphas_cumprod.sqrt()
-        # For WaveGrad special continiout noise level conditioning
+        # For WaveGrad special continious noise level conditioning
         self.sqrt_alphas_cumprod_prev = alphas_cumprod_prev_with_last.sqrt().numpy()
         sqrt_recip_alphas_cumprod = (1 / alphas_cumprod).sqrt()
         sqrt_recipm1_alphas_cumprod = (1 / alphas_cumprod - 1).sqrt()
@@ -42,7 +55,7 @@ class WaveGrad(BaseModule):
 
         # Calculations for posterior q(y_{t-1} | y_t, y_0)
         posterior_variance = betas * (1 - alphas_cumprod_prev) / (1 - alphas_cumprod)
-        posterior_variance = torch.stack([posterior_variance, torch.FloatTensor([1e-20] * self.n_iter)])
+        posterior_variance = torch.stack([posterior_variance, torch.FloatTensor([1e-20] * n_iter)])
         posterior_log_variance_clipped = posterior_variance.max(dim=0).values.log()
         # below: log calculation clipped because the posterior variance is 0 at the beginning of the diffusion chain
         posterior_mean_coef1 = betas * alphas_cumprod_prev.sqrt() / (1 - alphas_cumprod)
@@ -50,13 +63,10 @@ class WaveGrad(BaseModule):
         self.register_buffer('posterior_log_variance_clipped', posterior_log_variance_clipped)
         self.register_buffer('posterior_mean_coef1', posterior_mean_coef1)
         self.register_buffer('posterior_mean_coef2', posterior_mean_coef2)
-
-        # Backbone neural network to model noise
-        self.total_factor = np.product(config.model_config.factors)
-        assert self.total_factor == config.data_config.hop_length, \
-            """Total factor-product should be equal to the hop length of STFT. Other cases have not been tested yet."""
-        self.n_iter = config.model_config.noise_schedule.n_iter
-        self.nn = WaveGradNN(config)
+        
+        self.n_iter = n_iter
+        self.betas_range = betas_range
+        self.noise_schedule_is_set = True
 
     def sample_continious_noise_level(self, batch_size, device):
         """
@@ -141,6 +151,8 @@ class WaveGrad(BaseModule):
         :param y_0 (torch.Tensor): GT speech signals
         :return loss (torch.Tensor): loss of diffusion model
         """
+        self._verify_noise_schedule_existence()
+
         # Sample continious noise level
         batch_size = y_0.shape[0]
         continious_sqrt_alpha_cumprod \
@@ -156,6 +168,16 @@ class WaveGrad(BaseModule):
         return loss
 
     def forward(self, mels, store_intermediate_states=False):
+        self._verify_noise_schedule_existence()
+        
         return self.sample(
             mels, store_intermediate_states
         )
+
+    def _verify_noise_schedule_existence(self):
+        if not self.noise_schedule_is_set:
+            raise RuntimeError(
+                f'No noise schedule is found. Specify your noise schedule '
+                'by pushing arguments into `set_new_noise_schedule(...)` method. '
+                'For example: `wavegrad.set_new_noise_level(n_iter=50, betas_range=(1e-4, 0.05))`.'
+            )
