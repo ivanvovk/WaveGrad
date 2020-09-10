@@ -72,7 +72,7 @@ class UpsamplingBlock(BaseModule):
         ])
         self.second_block_main_branch = torch.nn.ModuleDict({
             f'modulation_{idx}': BasicModulationBlock(
-                out_channels, dilation=dilations[2]
+                out_channels, dilation=dilations[2 + idx]
             ) for idx in range(2)
         })
 
