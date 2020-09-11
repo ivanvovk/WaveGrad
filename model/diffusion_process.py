@@ -25,7 +25,7 @@ class WaveGrad(BaseModule):
             """Total factor-product should be equal to the hop length of STFT."""
         self.nn = WaveGradNN(config)
 
-    def set_new_noise_schedule(self, n_iter, betas_range):
+    def set_new_noise_schedule(self, n_iter, betas_range, init=torch.linspace):
         """
         Sets sampling noise schedule. Authors in the paper showed
         that WaveGrad supports variable noise schedules during inference.
@@ -33,7 +33,7 @@ class WaveGrad(BaseModule):
         :param n_iter (int): number of iterations of Langevin dynamics
         :param betas_range (set of floats): schedule parameters
         """
-        betas = torch.linspace(betas_range[0], betas_range[1], steps=n_iter)
+        betas = init(betas_range[0], betas_range[1], steps=n_iter)
         alphas = 1 - betas
         alphas_cumprod = alphas.cumprod(dim=0)
         alphas_cumprod_prev = torch.cat([torch.FloatTensor([1]), alphas_cumprod[:-1]])
@@ -179,5 +179,5 @@ class WaveGrad(BaseModule):
             raise RuntimeError(
                 f'No noise schedule is found. Specify your noise schedule '
                 'by pushing arguments into `set_new_noise_schedule(...)` method. '
-                'For example: `wavegrad.set_new_noise_level(n_iter=50, betas_range=(1e-4, 0.05))`.'
+                'For example: `wavegrad.set_new_noise_level(n_iter=50, betas_range=(1e-5, 0.01))`.'
             )

@@ -121,6 +121,7 @@ def run(config, args):
                     audios = {}
                     specs = {}
                     test_l1_loss = 0
+                    test_l1_spec_loss = 0
                     average_rtf = 0
 
                     for index, test_sample in enumerate(test_batch):
@@ -131,6 +132,7 @@ def run(config, args):
                         y_0_hat = model.forward(
                             test_mel, store_intermediate_states=False
                         )
+                        y_0_hat_mel = mel_fn(y_0_hat)
                         end = datetime.now()
                         generation_time = (end - start).total_seconds()
                         average_rtf += compute_rtf(
@@ -138,22 +140,26 @@ def run(config, args):
                         )
 
                         test_l1_loss += torch.nn.L1Loss()(y_0_hat, test_sample).item()
+                        test_l1_spec_loss += torch.nn.L1Loss()(y_0_hat_mel, test_mel).item()
 
                         audios[f'audio_{index}/predicted'] = y_0_hat.cpu().squeeze()
-                        specs[f'mel_{index}/predicted'] = mel_fn(y_0_hat).cpu().squeeze()
+                        specs[f'mel_{index}/predicted'] = y_0_hat_mel.cpu().squeeze()
 
                     average_rtf /= len(test_batch)
                     show_message(f'Device: GPU. average_rtf={average_rtf}', verbose=args.verbose)
 
                     test_l1_loss /= len(test_batch)
                     loss_stats['l1_test_batch_loss'] = test_l1_loss
+                    test_l1_spec_loss /= len(test_batch)
+                    loss_stats['l1_spec_test_batch_loss'] = test_l1_spec_loss
 
                     logger.log_test(epoch, loss_stats, verbose=args.verbose)
                     logger.log_audios(epoch, audios)
                     logger.log_specs(epoch, specs)
 
                 logger.save_checkpoint(iteration, model, optimizer)
-            scheduler.step()
+            if epoch % (epoch//10 + 1) == 0:
+                scheduler.step()
     except KeyboardInterrupt:
         print('KeyboardInterrupt: training has been stopped.')
         return
