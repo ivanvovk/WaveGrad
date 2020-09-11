@@ -1,3 +1,5 @@
+![alt-text-1](generated_samples/denoising.gif "denoising")
+
 # WaveGrad
 Implementation (PyTorch) of Google Brain's WaveGrad vocoder (paper: https://arxiv.org/pdf/2009.00713.pdf).
 
