@@ -33,7 +33,7 @@ class WaveGrad(BaseModule):
         :param n_iter (int): number of iterations of Langevin dynamics
         :param betas_range (set of floats): schedule parameters
         """
-        betas = init(betas_range[0], betas_range[1], steps=n_iter)
+        betas = init(betas_range[0], betas_range[1], n_iter)
         alphas = 1 - betas
         alphas_cumprod = alphas.cumprod(dim=0)
         alphas_cumprod_prev = torch.cat([torch.FloatTensor([1]), alphas_cumprod[:-1]])
