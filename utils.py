@@ -93,6 +93,12 @@ class ConfigWrapper(object):
     def values(self):
         return self.__dict__.values()
 
+    def to_dict_type(self):
+        return {
+            key: (value if not isinstance(value, ConfigWrapper) else value.to_dict_type())
+            for key, value in dict(**self).items()
+        }
+
     def __len__(self):
         return len(self.__dict__)
 
