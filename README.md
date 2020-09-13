@@ -3,16 +3,16 @@
 # WaveGrad
 Implementation (PyTorch) of Google Brain's WaveGrad vocoder (paper: https://arxiv.org/pdf/2009.00713.pdf).
 
-#### Status (in active development, stay tuned)
+#### **Status** (STABLE VERSION)
 
-* Model training is stable and supports multi-iteration inference (6 iterations also work perfect).
-* Model produces high-fidelity 22KHz generated samples.
-* Estimated real-time factor (RTF) for the model (see the table below). 100- and lower-iteration inference is faster than real-time on NVIDIA RTX 2080 Ti. 6-iteration model is faster than the model reported in the paper.
-* Uploaded generated samples by the current best model for different number of iterations.
-* Preparing the best noise schedule search code for you.
+* Model training is stable and supports multi-iteration inference (**6 iterations also work perfect**).
+* Model training runs on a single 12GB GPU machine.
+* **Model produces high-fidelity 22KHz generated samples**. Uploaded samples for a different number of iterations.
+* Estimated the real-time factor (RTF) for the model (see the table below). 100- and lower-iteration inference is faster than real-time on NVIDIA RTX 2080 Ti. **6-iteration model is faster than the model reported in the paper**.
+* Updated the code with **new grid search utils for finding the best noise schedules**.
 * Preparing pretrained checkpoints.
 
-#### Real-time factor (RTF)
+#### Real-time factor (RTF) and number of parameters
 
 |       Model       |  Stable  | RTF (NVIDIA RTX 2080 Ti), 22KHz |
 |-------------------|----------|---------------------------------|
@@ -22,6 +22,8 @@ Implementation (PyTorch) of Google Brain's WaveGrad vocoder (paper: https://arxi
 |   25 iterations   |   True   |          0.22 ± 0.011           |
 |   12 iterations   |   True   |          0.10 ± 0.005           |
 |    6 iterations   |   True   |          0.04 ± 0.005           |
+
+Number of parameters: 15810401
 
 ## About
 
@@ -40,20 +42,21 @@ cd WaveGrad
 
 ## Train your own model
 
-1. Make filelists of your data like ones included into `filelists` folder.
+1. Make filelists of your audio data like ones included into `filelists` folder.
 2. Setup a configuration in `configs` folder.
 3. Change config path in `train.sh` and run the script by `sh train.sh`.
 4. To track training process run tensorboard by `tensorboard --logdir=logs/YOUR_LOG_FOLDER`.
+5. Once model is trained, grid search the best schedule for a needed number of iterations in [`notebooks/inference.ipynb`](notebooks/inference.ipynb).
 
 ## Inference, generated audios and pretrained checkpoints
 
-#### Inference
+#### Inference, your runtime environment RTF and best schedule grid search
 
-In order to make inference of your model follow instructions provided in Jupyter Notebook [`notebooks/inference.ipynb`](notebooks/inference.ipynb). Also there is the code to estimate RTF in your runtime environment.
+In order to make inference of your model follow the instructions provided in Jupyter Notebook [`notebooks/inference.ipynb`](notebooks/inference.ipynb). Also there is the code to estimate RTF in your runtime environment and to run best schedule grid search.
 
 #### Generated audios
 
-Current generated audios are provided in [`generated_samples`](generated_samples/) folder.
+Current generated audios are provided in [`generated_samples`](generated_samples/) folder. Quality degradation between 1000-iteration and 6-iteration inferences is not noticeable if found the best schedule for the latter.
 
 #### Pretrained checkpoints
 
@@ -61,23 +64,26 @@ In progress.
 
 ## Important details, issues and comments
 
-* During training WaveGrad uses default noise scheduling with 1000 iterations and linear scale betas from range (1e-6, 0.01). For inference you can set another schedulling with less iterations (6 iterations reported in paper are ok for this implementation!). Tune betas carefully, the output quality really highly depends on them.
-* **Model training succesfully runs on a single 12GB GPU machine**. Batch size is modified compared to the paper (256 -> 48, authors trained their model on TPU).
-* Model converges to acceptable quality in 10-20 thousand iterations (~2 hours).
-* At some point training might start to behave very weird and crazy (loss explodes), so I introduced learning rate scheduling and gradient clipping.
+* During training WaveGrad uses a default noise schedule with 1000 iterations and linear scale betas from range (1e-6, 0.01). For inference you can set another schedule with less iterations (6 iterations reported in paper are ok for this implementation!). Tune betas carefully, the output quality really highly depends on them.
+* **The best practice is to run grid search** function `iters_grid_search(...)` from `benchmark.py` to find the best schedule for your number of iterations.
+* **Model training succesfully runs on a single 12GB GPU machine**. Batch size is modified compared to the paper (256 -> 48, as authors trained their model on TPU). After ~10k iterations (1-2 hours) model performs good generation for 50-iteration inference. Total training time is about 1-2 days (for absolute convergence).
+* Model converges to acceptable quality in 10-20 thousand iterations (~2 hours) for 50-iteration inference.
+* At some point training might start to behave very weird and crazy (loss explodes), so I have introduced learning rate (LR) scheduling and gradient clipping.
 * **Hop length of your STFT should always be equal 300** (thus total upsampling factor). Other cases are not supported yet.
+* It is crucial to have `LINEAR_SCALE=5000` (already set by default) flag in `model/linear_modulation.py`. It rescales positional embeddings to have absolute amplitude `1/LINEAR_SCALE`. It is improtant since continious noise level and sinusoidal positional encodings both have equal range (-1, 1). No rescaling results that the model cannot properly extract noise info from positionally embedded continious noise level and thus cannot extrapolate on longer mel-spectrogram sequences (longer than training segment: 7200 timepoints by default).
 
 ## History of updates
 
-* Improved training by introducing smarter learning rate scheduller (**you are here**). Obtained high-fidelity synthesis.
-* Stable training and multi-iteration inference. 6-iteration noise schedulling is supported.
+* (NEW) Huge update. New 6-iteration well generated sample example. New noise schedule setting API. Added the best schedule grid search code.
+* Improved training by introducing smarter learning rate scheduler. Obtained high-fidelity synthesis.
+* Stable training and multi-iteration inference. 6-iteration noise scheduling is supported.
 * Stable training and fixed-iteration inference with significant background static noise left. All positional encoding issues are solved.
 * Stable training of 25-, 50- and 1000-fixed-iteration models. Found no linear scaling (C=5000 from paper) of positional encoding (bug).
 * Stable training of 25-, 50- and 1000-fixed-iteration models. Fixed positional encoding downscaling. Parallel segment sampling is replaced by full-mel sampling.
-* RELEASE (first on GitHub). Parallel segment sampling and broken positional encoding downscaling. Bad quality with clicks from concatenation from parallel-segment generation.
+* (RELEASE, first on GitHub). Parallel segment sampling and broken positional encoding downscaling. Bad quality with clicks from concatenation from parallel-segment generation.
 
 ## References
 
-* [WaveGrad: Estimating Gradients for Waveform Generation](https://arxiv.org/pdf/2009.00713.pdf)
-* [Denoising Diffusion Probabilistic Models](https://arxiv.org/pdf/2006.11239.pdf)
+* Nanxin Chen et al., [WaveGrad: Estimating Gradients for Waveform Generation](https://arxiv.org/pdf/2009.00713.pdf)
+* Jonathan Ho et al., [Denoising Diffusion Probabilistic Models](https://arxiv.org/pdf/2006.11239.pdf)
 * [Denoising Diffusion Probabilistic Models repository](https://github.com/hojonathanho/diffusion), from which diffusion calculations have been adopted
