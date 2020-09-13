@@ -21,6 +21,8 @@ class Logger(SummaryWriter):
         if not self.continue_training:
             os.makedirs(self.logdir)
         super(Logger, self).__init__(self.logdir)
+        with open(f'{self.logdir}/config.json', 'w') as f:
+            json.dump(config.to_dict_type(), f)
         
     def _log_losses(self, iteration, loss_stats: dict):
         for key, value in loss_stats.items():
