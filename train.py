@@ -76,8 +76,12 @@ def run(config, args):
         for epoch in range(epoch_start, config.training_config.n_epoch):
             # Training step
             model.set_new_noise_schedule(
-                n_iter=config.training_config.training_noise_schedule.n_iter,
-                betas_range=config.training_config.training_noise_schedule.betas_range
+                init=torch.linspace,
+                init_kwargs={
+                    'steps': config.training_config.training_noise_schedule.n_iter,
+                    'start': config.training_config.training_noise_schedule.betas_range[0],
+                    'end': config.training_config.training_noise_schedule.betas_range[1]
+                }
             )
             for batch in train_dataloader:
                 batch = batch.cuda()
@@ -103,8 +107,12 @@ def run(config, args):
             # Test step
             if epoch % config.training_config.test_interval == 0:
                 model.set_new_noise_schedule(
-                    n_iter=config.training_config.test_noise_schedule.n_iter,
-                    betas_range=config.training_config.test_noise_schedule.betas_range
+                    init=torch.linspace,
+                    init_kwargs={
+                        'steps': config.training_config.test_noise_schedule.n_iter,
+                        'start': config.training_config.test_noise_schedule.betas_range[0],
+                        'end': config.training_config.test_noise_schedule.betas_range[1]
+                    }
                 )
                 with torch.no_grad():
                     # Calculate test set loss

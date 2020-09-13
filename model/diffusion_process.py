@@ -25,15 +25,25 @@ class WaveGrad(BaseModule):
             """Total factor-product should be equal to the hop length of STFT."""
         self.nn = WaveGradNN(config)
 
-    def set_new_noise_schedule(self, n_iter, betas_range, init=torch.linspace):
+    def set_new_noise_schedule(
+        self,
+        init=torch.linspace,
+        init_kwargs={'steps': 50, 'start': 1e-6, 'end': 1e-2}
+    ):
         """
         Sets sampling noise schedule. Authors in the paper showed
         that WaveGrad supports variable noise schedules during inference.
         Thanks to the continious noise level conditioning.
-        :param n_iter (int): number of iterations of Langevin dynamics
-        :param betas_range (set of floats): schedule parameters
+        :param init (callable function, optional): function which initializes betas
+        :param init_kwargs (dict, optional): dict of arguments to be pushed to `init` function.
+            Should always contain the key `steps` corresponding to the number of iterations to be done by the model.
+            This is done so because `torch.linspace` has this argument named as `steps`.
         """
-        betas = init(betas_range[0], betas_range[1], n_iter)
+        assert 'steps' in list(init_kwargs.keys()), \
+            '`init_kwargs` should always contain the key `steps` corresponding to the number of iterations to be done by the model.'
+        n_iter = init_kwargs['steps']
+
+        betas = init(**init_kwargs)
         alphas = 1 - betas
         alphas_cumprod = alphas.cumprod(dim=0)
         alphas_cumprod_prev = torch.cat([torch.FloatTensor([1]), alphas_cumprod[:-1]])
@@ -65,7 +75,7 @@ class WaveGrad(BaseModule):
         self.register_buffer('posterior_mean_coef2', posterior_mean_coef2)
         
         self.n_iter = n_iter
-        self.betas_range = betas_range
+        self.noise_schedule_kwargs = {'init': init, 'init_kwargs': init_kwargs}
         self.noise_schedule_is_set = True
 
     def sample_continious_noise_level(self, batch_size, device):
@@ -177,7 +187,8 @@ class WaveGrad(BaseModule):
     def _verify_noise_schedule_existence(self):
         if not self.noise_schedule_is_set:
             raise RuntimeError(
-                f'No noise schedule is found. Specify your noise schedule '
+                'No noise schedule is found. Specify your noise schedule '
                 'by pushing arguments into `set_new_noise_schedule(...)` method. '
-                'For example: `wavegrad.set_new_noise_level(n_iter=50, betas_range=(1e-5, 0.01))`.'
+                'For example: '
+                "`wavegrad.set_new_noise_level(init=torch.linspace, init_kwargs=\{'steps': 50, 'start': 1e-6, 'end': 1e-2\})`."
             )
