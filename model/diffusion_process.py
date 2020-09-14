@@ -33,7 +33,7 @@ class WaveGrad(BaseModule):
         """
         Sets sampling noise schedule. Authors in the paper showed
         that WaveGrad supports variable noise schedules during inference.
-        Thanks to the continious noise level conditioning.
+        Thanks to the continuous noise level conditioning.
         :param init (callable function, optional): function which initializes betas
         :param init_kwargs (dict, optional): dict of arguments to be pushed to `init` function.
             Should always contain the key `steps` corresponding to the number of iterations to be done by the model.
@@ -55,7 +55,7 @@ class WaveGrad(BaseModule):
 
         # Calculations for posterior q(y_n|y_0)
         sqrt_alphas_cumprod = alphas_cumprod.sqrt()
-        # For WaveGrad special continious noise level conditioning
+        # For WaveGrad special continuous noise level conditioning
         self.sqrt_alphas_cumprod_prev = alphas_cumprod_prev_with_last.sqrt().numpy()
         sqrt_recip_alphas_cumprod = (1 / alphas_cumprod).sqrt()
         sqrt_recipm1_alphas_cumprod = (1 / alphas_cumprod - 1).sqrt()
@@ -78,29 +78,29 @@ class WaveGrad(BaseModule):
         self.noise_schedule_kwargs = {'init': init, 'init_kwargs': init_kwargs}
         self.noise_schedule_is_set = True
 
-    def sample_continious_noise_level(self, batch_size, device):
+    def sample_continuous_noise_level(self, batch_size, device):
         """
-        Samples continious noise level sqrt(alpha_cumprod).
+        Samples continuous noise level sqrt(alpha_cumprod).
         This is what makes WaveGrad different from other Denoising Diffusion Probabilistic Models.
         """
         s = np.random.choice(range(1, self.n_iter + 1), size=batch_size)
-        continious_sqrt_alpha_cumprod = torch.FloatTensor(
+        continuous_sqrt_alpha_cumprod = torch.FloatTensor(
             np.random.uniform(
                 self.sqrt_alphas_cumprod_prev[s-1],
                 self.sqrt_alphas_cumprod_prev[s],
                 size=batch_size
             )
         ).to(device)
-        return continious_sqrt_alpha_cumprod.unsqueeze(-1)
+        return continuous_sqrt_alpha_cumprod.unsqueeze(-1)
     
-    def q_sample(self, y_0, continious_sqrt_alpha_cumprod=None, eps=None):
+    def q_sample(self, y_0, continuous_sqrt_alpha_cumprod=None, eps=None):
         batch_size = y_0.shape[0]
-        continious_sqrt_alpha_cumprod \
-            = self.sample_continious_noise_level(batch_size, device=y_0.device) \
-                if isinstance(eps, type(None)) else continious_sqrt_alpha_cumprod
+        continuous_sqrt_alpha_cumprod \
+            = self.sample_continuous_noise_level(batch_size, device=y_0.device) \
+                if isinstance(eps, type(None)) else continuous_sqrt_alpha_cumprod
         if isinstance(eps, type(None)):
             eps = torch.randn_like(y_0)
-        outputs = continious_sqrt_alpha_cumprod * y_0 + (1 - continious_sqrt_alpha_cumprod**2) * eps
+        outputs = continuous_sqrt_alpha_cumprod * y_0 + (1 - continuous_sqrt_alpha_cumprod**2) * eps
         return outputs
 
     def q_posterior(self, y_start, y, t):
@@ -163,17 +163,17 @@ class WaveGrad(BaseModule):
         """
         self._verify_noise_schedule_existence()
 
-        # Sample continious noise level
+        # Sample continuous noise level
         batch_size = y_0.shape[0]
-        continious_sqrt_alpha_cumprod \
-            = self.sample_continious_noise_level(batch_size, device=y_0.device)
+        continuous_sqrt_alpha_cumprod \
+            = self.sample_continuous_noise_level(batch_size, device=y_0.device)
         eps = torch.randn_like(y_0)
 
         # Diffuse the signal
-        y_noisy = self.q_sample(y_0, continious_sqrt_alpha_cumprod, eps)
+        y_noisy = self.q_sample(y_0, continuous_sqrt_alpha_cumprod, eps)
 
         # Reconstruct the added noise
-        eps_recon = self.nn(mels, y_noisy, continious_sqrt_alpha_cumprod)
+        eps_recon = self.nn(mels, y_noisy, continuous_sqrt_alpha_cumprod)
         loss = torch.nn.L1Loss()(eps_recon, eps)
         return loss
 

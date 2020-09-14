@@ -67,10 +67,9 @@ In progress.
 * During training WaveGrad uses a default noise schedule with 1000 iterations and linear scale betas from range (1e-6, 0.01). For inference you can set another schedule with less iterations (6 iterations reported in paper are ok for this implementation!). Tune betas carefully, the output quality really highly depends on them.
 * **The best practice is to run grid search** function `iters_grid_search(...)` from `benchmark.py` to find the best schedule for your number of iterations.
 * **Model training succesfully runs on a single 12GB GPU machine**. Batch size is modified compared to the paper (256 -> 48, as authors trained their model on TPU). After ~10k iterations (1-2 hours) model performs good generation for 50-iteration inference. Total training time is about 1-2 days (for absolute convergence).
-* Model converges to acceptable quality in 10-20 thousand iterations (~2 hours) for 50-iteration inference.
 * At some point training might start to behave very weird and crazy (loss explodes), so I have introduced learning rate (LR) scheduling and gradient clipping.
-* **Hop length of your STFT should always be equal 300** (thus total upsampling factor). Other cases are not supported yet.
-* It is crucial to have `LINEAR_SCALE=5000` (already set by default) flag in `model/linear_modulation.py`. It rescales positional embeddings to have absolute amplitude `1/LINEAR_SCALE`. It is improtant since continious noise level and sinusoidal positional encodings both have equal range (-1, 1). No rescaling results that the model cannot properly extract noise info from positionally embedded continious noise level and thus cannot extrapolate on longer mel-spectrogram sequences (longer than training segment: 7200 timepoints by default).
+* Hop length of your STFT should be equal 300 (thus total upsampling factor). Other cases are not supported yet.
+* It is crucial to have `LINEAR_SCALE=5000` (already set by default) flag in `model/linear_modulation.py`. It rescales positional embeddings to have absolute amplitude `1/LINEAR_SCALE`. It is improtant since continuous noise level and sinusoidal positional encodings both have equal range (-1, 1). No rescaling results that the model cannot properly extract noise info from positionally embedded continuous noise level and thus cannot extrapolate on longer mel-spectrogram sequences (longer than training segment: 7200 timepoints by default).
 
 ## History of updates
 
