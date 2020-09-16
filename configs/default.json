@@ -35,7 +35,7 @@
         "lr": 1e-3,
         "grad_clip_threshold": 1,
         "scheduler_step_size": 1,
-        "scheduler_gamma": 0.9,
+        "scheduler_gamma": 0.95,
         "n_epoch": 100000000,
         "n_samples_to_test": 4,
         "test_interval": 1,
