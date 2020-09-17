@@ -73,7 +73,7 @@ In progress.
 
 ## History of updates
 
-* (NEW) New RTF info for NVIDIA Tesla K80 GPU card (popular in Google Collab service) and CPU Intel Xeon 2.3GHz.
+* (NEW) New RTF info for NVIDIA Tesla K80 GPU card (popular in Google Colab service) and CPU Intel Xeon 2.3GHz.
 * Huge update. New 6-iteration well generated sample example. New noise schedule setting API. Added the best schedule grid search code.
 * Improved training by introducing smarter learning rate scheduler. Obtained high-fidelity synthesis.
 * Stable training and multi-iteration inference. 6-iteration noise scheduling is supported.
