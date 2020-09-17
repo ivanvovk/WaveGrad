@@ -14,14 +14,14 @@ Implementation (PyTorch) of Google Brain's WaveGrad vocoder (paper: https://arxi
 
 #### Real-time factor (RTF) for 22KHz audio generation and number of parameters
 
-|       Model       |  Stable  | RTF (RTX 2080 Ti) |  RTF (Tesla K80) | CPU (Intel Xeon 2.3GHz) |
-|-------------------|----------|-------------------|------------------|-------------------------|
-| 1000 iterations   |   True   |    9.59 ± 0.357   |        -         |            -            |
-|  100 iterations   |   True   |    0.94 ± 0.046   |   5.85 ± 0.114   |            -            |
-|   50 iterations   |   True   |    0.45 ± 0.021   |   2.92 ± 0.055   |            -            |
-|   25 iterations   |   True   |    0.22 ± 0.011   |   1.45 ± 0.025   |            -            |
-|   12 iterations   |   True   |    0.10 ± 0.005   |   0.69 ± 0.009   |       4.55 ± 0.545      |
-|    6 iterations   |   True   |    0.04 ± 0.005   |   0.33 ± 0.005   |       2.09 ± 0.262      |
+|       Model       |  Stable  | RTF (RTX 2080 Ti) |  RTF (Tesla K80) | RTF (CPU Intel Xeon 2.3GHz) |
+|-------------------|----------|-------------------|------------------|-----------------------------|
+| 1000 iterations   |   True   |    9.59 ± 0.357   |        -         |              -              |
+|  100 iterations   |   True   |    0.94 ± 0.046   |   5.85 ± 0.114   |              -              |
+|   50 iterations   |   True   |    0.45 ± 0.021   |   2.92 ± 0.055   |              -              |
+|   25 iterations   |   True   |    0.22 ± 0.011   |   1.45 ± 0.025   |              -              |
+|   12 iterations   |   True   |    0.10 ± 0.005   |   0.69 ± 0.009   |         4.55 ± 0.545        |
+|    6 iterations   |   True   |    0.04 ± 0.005   |   0.33 ± 0.005   |         2.09 ± 0.262        |
 
 **Number of parameters**: 15810401
 
