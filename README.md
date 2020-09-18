@@ -10,7 +10,7 @@ Implementation (PyTorch) of Google Brain's WaveGrad vocoder (paper: https://arxi
 * **Model produces high-fidelity 22KHz generated samples**. Uploaded samples for a different number of iterations.
 * Estimated the real-time factor (RTF) for the model (see the table below). 100- and lower-iteration inference is faster than real-time on NVIDIA RTX 2080 Ti. **6-iteration model is faster than the model reported in the paper**.
 * Updated the code with **new grid search utils for finding the best noise schedules**.
-* Preparing pretrained checkpoints.
+* **Uploaded pretrained on 22KHz LJSpeech model.**
 
 #### Real-time factor (RTF) for 22KHz audio generation and number of parameters
 
@@ -60,7 +60,7 @@ Current generated audios are provided in [`generated_samples`](generated_samples
 
 #### Pretrained checkpoints
 
-In progress.
+You can find a pretrained model on LJSpeech (22KHz) via [this](https://drive.google.com/file/d/1hPdtcd8kQXfEX1jGdrIt5lWY1D_gNaLJ/view?usp=sharing) link. **Note: checkpoint is a `dict` with a single key `'model'`.**
 
 ## Important details, issues and comments
 
