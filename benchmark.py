@@ -121,7 +121,7 @@ def iters_schedule_grid_search(model, config, n_iter=6, step=1, test_batch_size=
 
     best_idx = np.argmin(list(stats.values()))
     best_betas = grid[best_idx]
-    show_message(f'Best betas on 7 iterations: {best_betas}')
+    show_message(f'Best betas on {n_iter} iterations: {best_betas}')
     
     return best_betas, stats
 
