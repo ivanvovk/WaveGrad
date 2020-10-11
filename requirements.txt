@@ -1,5 +1,5 @@
 torch
 torchaudio
 numpy
-matplotlib
+matplotlib>=3.3.1
 tqdm
