@@ -63,7 +63,7 @@ def save_figure_to_numpy(fig):
 def plot_tensor_to_numpy(tensor):
     plt.style.use('default')
     fig, ax = plt.subplots(figsize=(12, 3))
-    im = ax.imshow(tensor, aspect="auto", origin="bottom", interpolation='none', cmap='hot')
+    im = ax.imshow(tensor, aspect="auto", origin="lower", interpolation='none', cmap='hot')
     plt.colorbar(im, ax=ax)
     plt.tight_layout()
 
