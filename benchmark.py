@@ -1,3 +1,4 @@
+import os
 import itertools
 import numpy as np
 
@@ -5,17 +6,30 @@ import torch
 
 from datetime import datetime
 from tqdm import tqdm
+from functools import partial
+from multiprocessing.dummy import Pool as ThreadPool
 
 from data import AudioDataset, MelSpectrogramFixed
 from utils import show_message
 
 
 def compute_rtf(sample, generation_time, sample_rate=22050):
+    """
+    Computes RTF for a given sample.
+    """
     total_length = sample.shape[-1]
     return float(generation_time * sample_rate / total_length)
 
 
 def estimate_average_rtf_on_filelist(filelist_path, config, model, verbose=True):
+    """
+    Runs RTF estimation of filelist of audios and computes statistics.
+    :param filelist_path (str): path to a filelist with needed audios
+    :param config (utils.ConfigWrapper): configuration dict
+    :param model (torch.nn.Module): WaveGrad model
+    :param verbose (bool, optional): verbosity level
+    :return stats: statistics dict
+    """
     device = next(model.parameters()).device
     config.training_config.test_filelist_path = filelist_path
     dataset = AudioDataset(config, training=False)
@@ -54,42 +68,68 @@ def estimate_average_rtf_on_filelist(filelist_path, config, model, verbose=True)
     return rtf_stats
 
 
-def iters_schedule_grid_search(model, config, n_iter=6, step=1, test_batch_size=2, path_to_store_stats=None, verbose=True):
+def _betas_estimate(betas, model, mels, mel_fn):
+    n_iter = len(betas)
+    init_fn = lambda **kwargs: torch.FloatTensor(betas)
+    model.set_new_noise_schedule(init=init_fn, init_kwargs={'steps': n_iter})
+
+    outputs = model.forward(mels, store_intermediate_states=False)
+    test_pred_mels = mel_fn(outputs)
+
+    loss = torch.nn.L1Loss()(test_pred_mels, mels).item()
+    return loss
+
+
+def generate_betas_grid(n_iter, betas_range, verbose):
+    betas_range = torch.FloatTensor(betas_range).log10()
+    exp_step = (betas_range[1] - betas_range[0]) / (n_iter - 1)
+    exponents = 10**torch.arange(betas_range[0], betas_range[1] + exp_step, step=exp_step)
+
+    grid = []
+    state = int(''.join(['1'] * n_iter))  # initial state
+    final_state = 9**n_iter
+    max_grid_size = 9**5
+    step = int(np.ceil(final_state / (max_grid_size)))
+    for _ in range(max_grid_size):
+        multipliers = list(map(int, str(state)))
+        if 0 in multipliers:
+            state += step
+            continue
+        betas = [mult * exp for mult, exp in zip(multipliers, exponents)]
+        grid.append(betas)
+        state += step
+    return grid
+
+
+def iters_schedule_grid_search(model, config,
+                               n_iter=6,
+                               betas_range=(1e-6, 1e-2),
+                               test_batch_size=2,
+                               step=1,
+                               path_to_store_schedule=None,
+                               save_stats_for_grid=True,
+                               verbose=True,
+                               n_jobs=1):
     """
-    Performs grid search for 6 iterations schedule. Run it only on GPU!
+    Performs grid search for 6 iterations schedule. Run it only on GPU and only for a small number of iterations!
     :param model (torch.nn.Module): WaveGrad model
     :param config (ConfigWrapper): model configuration
-    :param step (int, optional): the step to make when going through grid.
-        `step=1` means that search will compute losses for the whole grid, else grid will be reduced by [::step].
-        It is recommended to use `step=1`.
+    :param n_iter (int, optional): number of iterations to search for
     :param test_batch_size (int, optional): number of one second samples to be tested grid sets on
-    :path_to_store_stats (str, optional): path to store stats. If not specified, then it will no be saved.
+    :param path_to_store_schedule (str, optional): path to store stats. If not specified, then it will no be saved and would be just returned.
+    :param save_stats_for_grid (str, optional): flag to save stats for whole grid or not
     :param verbose (bool, optional): output all the process
-    :return best_betas (list): list of betas, which gives the lowest log10-mel-spectrogram absolute error
+    :param n_jobs(int, optional): number of parallel threads to use
+    :return betas (list): list of betas, which gives the lowest log10-mel-spectrogram absolute error
     :return stats (dict): dict of type {betas: loss} for the whole grid
     """
     device = next(model.parameters()).device
-    if device == 'cpu':
+    if 'cpu' in str(device):
         show_message('WARNING: running grid search on CPU will be slow.')
-
+    
     show_message('Initializing betas grid...', verbose=verbose)
-    nums = np.linspace(1, 9, num=9).astype(float)
-    scale = n_iter // 5
-    residual = n_iter % 5
-    exps_types = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2]
-    exps = []
-    for exps_type in exps_types:
-        exps += [exps_type] * scale
-    exps += [exps_types[-1]] * residual
-    exps = [exps,]
-    assert len(exps[0]) == n_iter
-    grid = []
-    for exp in exps:
-        grid_ = [list(zip(x,exp)) for x in itertools.permutations(nums,len(exp))]
-        grid.append([[item[0] * item[1] for item in betas] for betas in grid_])
-    grid = np.concatenate(grid)[::step]
-    show_message(f'Grid size: {grid.shape[0]}', verbose=verbose)
-
+    grid = generate_betas_grid(n_iter, betas_range, verbose=verbose)[::step]
+    
     show_message('Initializing utils...', verbose=verbose)
     mel_fn = MelSpectrogramFixed(
         sample_rate=config.data_config.sample_rate,
@@ -102,43 +142,33 @@ def iters_schedule_grid_search(model, config, n_iter=6, step=1, test_batch_size=
         window_fn=torch.hann_window
     ).to(device)
     dataset = AudioDataset(config, training=True)
-    idx = np.random.choice(range(len(dataset)), size=2, replace=False)
+    idx = np.random.choice(range(len(dataset)), size=test_batch_size, replace=False)
     test_batch = torch.stack([dataset[i] for i in idx]).to(device)
     test_mels = mel_fn(test_batch)
 
     show_message('Starting search...', verbose=verbose)
-    stats = {}
-    for i, betas in enumerate(tqdm(grid, leave=False) if verbose else grid):
-        init_fn = lambda **kwargs: torch.FloatTensor(betas)
-        model.set_new_noise_schedule(init=init_fn, init_kwargs={'steps': n_iter})
-        outputs = model.forward(test_mels, store_intermediate_states=False)
-        test_pred_mels = mel_fn(outputs)
-        stats[i] = torch.nn.L1Loss()(test_pred_mels, test_mels)
+    with ThreadPool(processes=n_jobs) as pool:
+        process_fn = partial(_betas_estimate, model=model, mels=test_mels, mel_fn=mel_fn)
+        stats = list(tqdm(pool.imap(process_fn, grid), total=len(grid)))
+    stats = {i : (grid[i], stats[i]) for i in range(len(stats))}
 
-    if path_to_store_stats:
-        show_message(f'Saving stats to {path_to_store_stats}...')
-        torch.save(stats, path_to_store_stats)
-
-    best_idx = np.argmin(list(stats.values()))
+    if save_stats_for_grid:
+        tmp_stats_path = f'{os.path.dirname(path_to_store_schedule)}/{n_iter}stats.pt'
+        show_message(f'Saving tmp stats for whole grid to `{tmp_stats_path}`...', verbose=verbose)
+        torch.save(stats, tmp_stats_path)
+    
+    best_idx = np.argmin(list([value for _, value in stats.values()]))
     best_betas = grid[best_idx]
-    show_message(f'Best betas on {n_iter} iterations: {best_betas}')
+    
+    if not isinstance(path_to_store_schedule, type(None)):
+        show_message(f'Saving best schedule to `{path_to_store_schedule}`...', verbose=verbose)
+        torch.save(best_betas, path_to_store_schedule)
     
     return best_betas, stats
 
 
-def init_from_iters6_schedule(iters6_betas, n_iter):
-    expanded = []
-    if n_iter < 6:
-        return iters6_betas[:n_iter]
-    scale = n_iter // 6
-    count = n_iter - 6
-    residual = n_iter % 6
-    for _ in range(residual):
-        expanded.append(iters6_betas[-1])
-    for beta in iters6_betas:
-        if count == 0:
-            expanded.append(beta)
-        else:
-            expanded += [beta] * scale
-            count -= 1
-    return expanded
+def fibonacci(b1=1e-6, b2=9e-6, n_iter=25):
+    betas = [b1, b2]
+    for _ in range(n_iter - 2):
+        betas.append(sum(betas[-2:]))
+    return betas[:n_iter]
