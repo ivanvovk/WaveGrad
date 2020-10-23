@@ -6,49 +6,22 @@ from model.base import BaseModule
 from model.layers import Conv1dWithInitialization
 
 
-DEFAULT_MAX_PE_LENGTH=500000
-CRITICAL_MAX_PE_LENGTH=2000000
 LINEAR_SCALE=5000
 
 
 class PositionalEncoding(BaseModule):
-    def __init__(self, n_channels, max_len, dwnscaled_by):
+    def __init__(self, n_channels):
         super(PositionalEncoding, self).__init__()
         self.n_channels = n_channels
-        self.max_len = max_len
-        self.dwnscaled_by = dwnscaled_by
 
-        pe = self.build_matrix(self.n_channels, self.max_len, self.dwnscaled_by)
-        self.register_buffer('pe', pe)
-
-    def build_matrix(self, n_channels, max_len, dwnscaled_by):
-        pe = torch.zeros(max_len, n_channels, dtype=torch.float32)
-        position = torch.arange(0, max_len, dtype=torch.float32).unsqueeze(1)
-        div_term = (torch.arange(0, n_channels, 2).float() * (-math.log(10000.0) / n_channels)).exp()
-        pe[:, 0::2] = (position * div_term * dwnscaled_by).sin()
-        pe[:, 1::2] = (position * div_term * dwnscaled_by).cos()
-        return pe.transpose(0, 1)
-
-    def rescale_to_new_max_len(self, new_max_len):
-        if new_max_len > CRITICAL_MAX_PE_LENGTH:
-            raise RuntimeError(
-                f'Rescaling PE to {new_max_len}, '
-                f'which is more than set CRITICAL_MAX_PE_LENGTH={CRITICAL_MAX_PE_LENGTH}.'
-            )
-        self.pe = self.build_matrix(self.n_channels, new_max_len, self.dwnscaled_by).to(self.pe)
-        self.max_len = new_max_len
-
-    def forward(self, noise_level, length):
-        if noise_level.shape[-1] > self.max_len:
-            print(
-                'Warning! Given the sequence longer than supports PE block. '
-                f'Running max length rescaling from {self.max_len} to {length}. '
-                'Next time inference will be faster.'
-            )
-            self.rescale_to_new_max_len(length)
-        batch_size = noise_level.shape[0]
-        outputs = noise_level[..., None] + self.pe[:, :length].repeat(batch_size, 1, 1) / LINEAR_SCALE
-        return outputs
+    def forward(self, noise_level):
+        if len(noise_level.shape) > 1:
+            noise_level = noise_level.squeeze(-1)
+        half_dim = self.n_channels // 2
+        exponents = torch.arange(half_dim, dtype=torch.float32).to(noise_level) / float(half_dim)
+        exponents = exponents ** 1e-4
+        exponents = LINEAR_SCALE * noise_level.unsqueeze(1) * exponents.unsqueeze(0)
+        return torch.cat([exponents.sin(), exponents.cos()], dim=-1)
 
 
 class FeatureWiseLinearModulation(BaseModule):
@@ -64,10 +37,7 @@ class FeatureWiseLinearModulation(BaseModule):
             ),
             torch.nn.LeakyReLU(0.2)
         ])
-        self.positional_encoding = PositionalEncoding(
-            in_channels, DEFAULT_MAX_PE_LENGTH//input_dscaled_by,
-            input_dscaled_by
-        )
+        self.positional_encoding = PositionalEncoding(in_channels)
         self.scale_conv = Conv1dWithInitialization(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -85,7 +55,7 @@ class FeatureWiseLinearModulation(BaseModule):
 
     def forward(self, x, noise_level):
         outputs = self.signal_conv(x)
-        outputs = outputs + self.positional_encoding(noise_level, length=x.shape[-1])
+        outputs = outputs + self.positional_encoding(noise_level).unsqueeze(-1)
         scale, shift = self.scale_conv(outputs), self.shift_conv(outputs)
         return scale, shift
 
