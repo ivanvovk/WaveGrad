@@ -1,13 +1,21 @@
 import os
 import glob
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
 import torch
 
 
-def show_message(text, verbose=True, end='\n'):
-    if verbose: print(text, end=end)
+def show_message(text, verbose=True, end='\n', rank=0):
+    if verbose and (rank == 0): print(text, end=end)
+
+
+def str2bool(v):
+    if isinstance(v, bool): return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'): return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'): return False
+    else: raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
 def parse_filelist(filelist_path):
@@ -63,7 +71,7 @@ def save_figure_to_numpy(fig):
 def plot_tensor_to_numpy(tensor):
     plt.style.use('default')
     fig, ax = plt.subplots(figsize=(12, 3))
-    im = ax.imshow(tensor, aspect="auto", origin="bottom", interpolation='none', cmap='hot')
+    im = ax.imshow(tensor, aspect="auto", origin="lower", interpolation='none')
     plt.colorbar(im, ax=ax)
     plt.tight_layout()
 
