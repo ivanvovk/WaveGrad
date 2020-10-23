@@ -129,7 +129,7 @@ ___
 ___
 ## History of updates
 
-* (**NEW**: 10/23/2020) Huge update. Distributed training and mixed-precision support. More correct positional encoding. CLI support for inference. Parallel grid search. Model size significantly decreased.
+* (**NEW**: 10/24/2020) Huge update. Distributed training and mixed-precision support. More correct positional encoding. CLI support for inference. Parallel grid search. Model size significantly decreased.
 * New RTF info for NVIDIA Tesla K80 GPU card (popular in Google Colab service) and CPU Intel Xeon 2.3GHz.
 * Huge update. New 6-iteration well generated sample example. New noise schedule setting API. Added the best schedule grid search code.
 * Improved training by introducing smarter learning rate scheduler. Obtained high-fidelity synthesis.
