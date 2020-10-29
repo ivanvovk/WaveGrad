@@ -1,14 +1,12 @@
 import os
 import argparse
 import json
-import socketserver
 import numpy as np
 
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.utils.data.distributed import DistributedSampler
-from torch.multiprocessing import Process
 from torch.utils.data import DataLoader
 
 from datetime import datetime
@@ -50,7 +48,8 @@ def run_training(rank, config, args):
         step_size=config.training_config.scheduler_step_size,
         gamma=config.training_config.scheduler_gamma
     )
-    scaler = torch.cuda.amp.GradScaler()
+    if config.training_config.use_fp16:
+        scaler = torch.cuda.amp.GradScaler()
 
     show_message('Initializing data loaders...', verbose=args.verbose, rank=rank)
     train_dataset = AudioDataset(config, training=True)
@@ -113,17 +112,25 @@ def run_training(rank, config, args):
                 batch = batch.cuda()
                 mels = mel_fn(batch)
                 
-                with torch.cuda.amp.autocast():
+                if config.training_config.use_fp16:
+                    with torch.cuda.amp.autocast():
+                        loss = (model if args.n_gpus == 1 else model.module).compute_loss(mels, batch)
+                    scaler.scale(loss).backward()
+                    scaler.unscale_(optimizer)
+                else:
                     loss = (model if args.n_gpus == 1 else model.module).compute_loss(mels, batch)
+                    loss.backward()
                 
-                scaler.scale(loss).backward()
-                scaler.unscale_(optimizer)
                 grad_norm = torch.nn.utils.clip_grad_norm_(
                     parameters=model.parameters(),
                     max_norm=config.training_config.grad_clip_threshold
                 )
-                scaler.step(optimizer)
-                scaler.update()
+
+                if config.training_config.use_fp16:
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    optimizer.step()
 
                 loss_stats = {
                     'total_loss': loss.item(),
