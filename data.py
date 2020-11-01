@@ -44,7 +44,7 @@ class AudioDataset(torch.utils.data.Dataset):
         if not self.training:  # If test
             return audio
         # Take segment of audio for training
-        if audio.shape[-1] >= self.segment_length:
+        if audio.shape[-1] > self.segment_length:
             max_audio_start = audio.shape[-1] - self.segment_length
             audio_start = np.random.randint(0, max_audio_start)
             segment = audio[audio_start:audio_start+self.segment_length]
