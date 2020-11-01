@@ -72,5 +72,7 @@ class MelSpectrogramFixed(torch.nn.Module):
         self.torchaudio_backend = MelSpectrogram(**kwargs)
     
     def forward(self, x):
-        outputs = self.torchaudio_backend(x)
-        return outputs[..., :-1].log10()
+        outputs = self.torchaudio_backend(x).log10()
+        mask = torch.isinf(outputs)
+        outputs[mask] = 0
+        return outputs[..., :-1]
