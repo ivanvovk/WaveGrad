@@ -44,6 +44,7 @@ if __name__ == "__main__":
 
     # Initialize the model
     model = WaveGrad(config)
+    model.load_state_dict(torch.load(args.checkpoint_path)['model'], strict=False)
 
     # Set noise schedule
     noise_schedule = torch.load(args.noise_schedule_path)
