@@ -17,7 +17,7 @@ Implementation (PyTorch) of Google Brain's high-fidelity WaveGrad vocoder ([pape
 - [x] 100- and lower-iteration inferences are faster than real-time on RTX 2080 Ti. **6-iteration inference is faster than one reported in the paper**.
 - [x] **Parallel grid search for the best noise schedule**.
 - [x] Uploaded generated samples for different number of iterations (see `generated_samples` folder).
-- [x] [Pretrained checkpoint](https://drive.google.com/file/d/1WnbMjP5jgHC2wRzPBWfmNgXpDylUhpm8/view?usp=sharing) on 22KHz LJSpeech dataset **with noise schedules**.
+- [x] [Pretrained checkpoint](https://drive.google.com/file/d/1X_AquK11C0j7U1lLxMDBdK5guabHaoXB/view?usp=sharing) on 22KHz LJSpeech dataset **with noise schedules**.
 
 #### Real-time factor (RTF)
 
@@ -113,7 +113,7 @@ Examples of generated audios are provided in [`generated_samples`](generated_sam
 
 #### Pretrained checkpoints
 
-You can find a pretrained checkpoint file* on LJSpeech (22KHz) via [this](https://drive.google.com/file/d/1WnbMjP5jgHC2wRzPBWfmNgXpDylUhpm8/view?usp=sharing) Google Drive link.
+You can find a pretrained checkpoint file* on LJSpeech (22KHz) via [this](https://drive.google.com/file/d/1X_AquK11C0j7U1lLxMDBdK5guabHaoXB/view?usp=sharing) Google Drive link.
 
 ***Note**: uploaded checkpoint is a `dict` with a single key `'model'`.
 
