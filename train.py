@@ -58,12 +58,13 @@ def run_training(rank, config, args):
         train_dataset, batch_size=config.training_config.batch_size,
         sampler=train_sampler, drop_last=True
     )
-    test_dataset = AudioDataset(config, training=False)
-    test_sampler = DistributedSampler(test_dataset) if args.n_gpus > 1 else None
-    test_dataloader = DataLoader(test_dataset, batch_size=1, sampler=test_sampler)
-    test_batch = test_dataset.sample_test_batch(
-        config.training_config.n_samples_to_test
-    )
+
+    if rank == 0:
+        test_dataset = AudioDataset(config, training=False)
+        test_dataloader = DataLoader(test_dataset, batch_size=1)
+        test_batch = test_dataset.sample_test_batch(
+            config.training_config.n_samples_to_test
+        )
 
     if config.training_config.continue_training:
         show_message('Loading latest checkpoint to continue training...', verbose=args.verbose, rank=rank)
@@ -75,16 +76,17 @@ def run_training(rank, config, args):
         epoch_start = 0
 
     # Log ground truth test batch
-    audios = {
-        f'audio_{index}/gt': audio
-        for index, audio in enumerate(test_batch)
-    }
-    logger.log_audios(0, audios)
-    specs = {
-        f'mel_{index}/gt': mel_fn(audio.cuda()).cpu().squeeze()
-        for index, audio in enumerate(test_batch)
-    }
-    logger.log_specs(0, specs)
+    if rank == 0:
+        audios = {
+            f'audio_{index}/gt': audio
+            for index, audio in enumerate(test_batch)
+        }
+        logger.log_audios(0, audios)
+        specs = {
+            f'mel_{index}/gt': mel_fn(audio.cuda()).cpu().squeeze()
+            for index, audio in enumerate(test_batch)
+        }
+        logger.log_specs(0, specs)
 
     if args.n_gpus > 1:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
@@ -201,9 +203,9 @@ def run_training(rank, config, args):
                     test_l1_spec_loss /= len(test_batch)
                     loss_stats['l1_spec_test_batch_loss'] = test_l1_spec_loss
 
-                    logger.log_test(epoch, loss_stats, verbose=args.verbose)
-                    logger.log_audios(epoch, audios)
-                    logger.log_specs(epoch, specs)
+                    logger.log_test(iteration, loss_stats, verbose=args.verbose)
+                    logger.log_audios(iteration, audios)
+                    logger.log_specs(iteration, specs)
 
                 logger.save_checkpoint(
                     iteration,
