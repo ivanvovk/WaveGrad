@@ -58,10 +58,10 @@ class WaveGrad(BaseModule):
         # For WaveGrad special continuous noise level conditioning
         self.sqrt_alphas_cumprod_prev = alphas_cumprod_prev_with_last.sqrt().numpy()
         sqrt_recip_alphas_cumprod = (1 / alphas_cumprod).sqrt()
-        sqrt_recipm1_alphas_cumprod = (1 / alphas_cumprod - 1).sqrt()
+        sqrt_alphas_cumprod_m1 = (1 - alphas_cumprod).sqrt() * sqrt_recip_alphas_cumprod
         self.register_buffer('sqrt_alphas_cumprod', sqrt_alphas_cumprod)
         self.register_buffer('sqrt_recip_alphas_cumprod', sqrt_recip_alphas_cumprod)
-        self.register_buffer('sqrt_recipm1_alphas_cumprod', sqrt_recipm1_alphas_cumprod)
+        self.register_buffer('sqrt_alphas_cumprod_m1', sqrt_alphas_cumprod_m1)
 
         # Calculations for posterior q(y_{t-1} | y_t, y_0)
         posterior_variance = betas * (1 - alphas_cumprod_prev) / (1 - alphas_cumprod)
@@ -94,26 +94,45 @@ class WaveGrad(BaseModule):
         return continuous_sqrt_alpha_cumprod.unsqueeze(-1)
     
     def q_sample(self, y_0, continuous_sqrt_alpha_cumprod=None, eps=None):
+        """
+        Efficiently computes diffusion version y_t from y_0 using a closed form expression:
+            y_t = sqrt(alpha_cumprod)_t * y_0 + sqrt(1 - alpha_cumprod_t) * eps,
+            where eps is sampled from a standard Gaussian.
+        """
         batch_size = y_0.shape[0]
         continuous_sqrt_alpha_cumprod \
             = self.sample_continuous_noise_level(batch_size, device=y_0.device) \
                 if isinstance(eps, type(None)) else continuous_sqrt_alpha_cumprod
         if isinstance(eps, type(None)):
             eps = torch.randn_like(y_0)
-        outputs = continuous_sqrt_alpha_cumprod * y_0 + (1 - continuous_sqrt_alpha_cumprod**2) * eps
+        # Closed form signal diffusion
+        outputs = continuous_sqrt_alpha_cumprod * y_0 + (1 - continuous_sqrt_alpha_cumprod**2).sqrt() * eps
         return outputs
 
     def q_posterior(self, y_start, y, t):
+        """
+        Computes reverse (denoising) process posterior q(y_{t-1}|y_0, y_t, x)
+        parameters: mean and variance.
+        """
         posterior_mean = self.posterior_mean_coef1[t] * y_start + self.posterior_mean_coef2[t] * y
         posterior_log_variance_clipped = self.posterior_log_variance_clipped[t]
         return posterior_mean, posterior_log_variance_clipped
 
     def predict_start_from_noise(self, y, t, eps):
-        return self.sqrt_recip_alphas_cumprod[t] * y - self.sqrt_recipm1_alphas_cumprod[t] * eps
+        """
+        Computes y_0 from given y_t and reconstructed noise.
+        Is needed to reconstruct the reverse (denoising)
+        process posterior q(y_{t-1}|y_0, y_t, x).
+        """
+        return self.sqrt_recip_alphas_cumprod[t] * y - self.sqrt_alphas_cumprod_m1[t] * eps
 
     def p_mean_variance(self, mels, y, t, clip_denoised: bool):
+        """
+        Computes Gaussian transitions of Markov chain at step t
+        for further computation of y_{t-1} given current state y_t and features.
+        """
         batch_size = mels.shape[0]
-        noise_level = torch.FloatTensor([self.sqrt_alphas_cumprod_prev[t]]).repeat(batch_size, 1).to(mels)
+        noise_level = torch.FloatTensor([self.sqrt_alphas_cumprod_prev[t+1]]).repeat(batch_size, 1).to(mels)
         eps_recon = self.nn(mels, y, noise_level)
         y_recon = self.predict_start_from_noise(y, t, eps_recon)
 
@@ -125,7 +144,7 @@ class WaveGrad(BaseModule):
 
     def compute_inverse_dynamics(self, mels, y, t, clip_denoised=True):
         """
-        Computes Langevin inverse dynamics.
+        Computes reverse (denoising) process dynamics. Closely related to the idea of Langevin dynamics.
         :param mels (torch.Tensor): mel-spectrograms acoustic features of shape [B, n_mels, T//hop_length]
         :param y (torch.Tensor): previous state from dynamics trajectory
         :param clip_denoised (bool, optional): clip signal to [-1, 1]
@@ -137,7 +156,7 @@ class WaveGrad(BaseModule):
 
     def sample(self, mels, store_intermediate_states=False):
         """
-        Generation from mel-spectrograms.
+        Samples speech waveform via progressive denoising of white noise with guidance of mels-epctrogram.
         :param mels (torch.Tensor): mel-spectrograms acoustic features of shape [B, n_mels, T//hop_length]
         :param store_intermediate_states (bool, optional): whether to store dynamics trajectory or not
         :return ys (list of torch.Tensor) (if store_intermediate_states=True)
@@ -156,7 +175,7 @@ class WaveGrad(BaseModule):
 
     def compute_loss(self, mels, y_0):
         """
-        Computes loss between GT Gaussian noise and predicted noise by model from diffusion process.
+        Computes loss between GT Gaussian noise and reconstructed noise by model from diffusion process.
         :param mels (torch.Tensor): mel-spectrograms acoustic features of shape [B, n_mels, T//hop_length]
         :param y_0 (torch.Tensor): GT speech signals
         :return loss (torch.Tensor): loss of diffusion model
@@ -178,6 +197,12 @@ class WaveGrad(BaseModule):
         return loss
 
     def forward(self, mels, store_intermediate_states=False):
+        """
+        Generates speech from given mel-spectrogram.
+        :param mels (torch.Tensor): mel-spectrogram tensor of shape [1, n_mels, T//hop_length]
+        :param store_intermediate_states (bool, optional):
+            flag to set return tensor to be a set of all states of denoising process 
+        """
         self._verify_noise_schedule_existence()
         
         return self.sample(
