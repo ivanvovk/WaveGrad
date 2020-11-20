@@ -11,18 +11,17 @@ class Logger(object):
     def __init__(self, config, rank=0):
         self.rank = rank
         self.summary_writer = None
+        self.continue_training = config.training_config.continue_training
+        self.logdir = config.training_config.logdir
+        self.sample_rate = config.data_config.sample_rate
 
         if self.rank == 0:
-            self.logdir = config.training_config.logdir
-            self.continue_training = config.training_config.continue_training
-            self.sample_rate = config.data_config.sample_rate
-
-            if rank == 0 and not self.continue_training and os.path.exists(self.logdir):
+            if not self.continue_training and os.path.exists(self.logdir):
                 raise RuntimeError(
                     f"You're trying to run training from scratch, "
                     f"but logdir `{self.logdir} already exists. Remove it or specify new one.`"
                 )
-            if rank == 0 and not self.continue_training:
+            if not self.continue_training:
                 os.makedirs(self.logdir)
             self.summary_writer = SummaryWriter(config.training_config.logdir)
             self.save_model_config(config)
@@ -40,12 +39,12 @@ class Logger(object):
             verbose=verbose
         )
 
-    def log_test(self, epoch, stats, verbose=True):
+    def log_test(self, iteration, stats, verbose=True):
         if self.rank != 0: return
         stats = {f'test/{key}': value for key, value in stats.items()}
-        self._log_losses(epoch, loss_stats=stats)
+        self._log_losses(iteration, loss_stats=stats)
         show_message(
-            f'Epoch: {epoch} | Losses: {[value for value in stats.values()]}',
+            f'Iteration: {iteration} | Losses: {[value for value in stats.values()]}',
             verbose=verbose
         )
     
