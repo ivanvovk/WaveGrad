@@ -37,7 +37,7 @@ Implementation (PyTorch) of Google Brain's high-fidelity WaveGrad vocoder ([pape
 ___
 ## About
 
-WaveGrad is a conditional model for waveform generation through estimating gradients of the data density with WaveNet-similar sampling quality. **This vocoder is neither GAN, nor Normalizing Flow, nor classical autoregressive model**. The main concept of vocoder is based on *Denoising Diffusion Probabilistic Models* (DDPM), which utilize *Langevin dynamics* and *score matching* frameworks. Furthemore, comparing to classic DDPM, WaveGrad achieves super-fast convergence (6 iterations and probably lower) w.r.t. Langevin dynamics iterative sampling scheme.
+WaveGrad is a conditional model for waveform generation through estimating gradients of the data density with WaveNet-similar sampling quality. **This vocoder is neither GAN, nor Normalizing Flow, nor classical autoregressive model**. The main concept of vocoder is based on *Denoising Diffusion Probabilistic Models* (DDPM), which utilize *Langevin dynamics* and *score matching* frameworks. Furthermore, comparing to classic DDPM, WaveGrad achieves super-fast convergence (6 iterations and probably lower) w.r.t. Langevin dynamics iterative sampling scheme.
 
 ___
 ## Installation
