@@ -4,11 +4,11 @@
         "upsampling_preconv_out_channels": 768,
         "upsampling_out_channels": [512, 512, 256, 128, 128],
         "upsampling_dilations": [
-            [1, 2, 1, 2],
-            [1, 2, 1, 2],
             [1, 2, 4, 8],
             [1, 2, 4, 8],
-            [1, 2, 4, 8]
+            [1, 2, 4, 8],
+            [1, 2, 1, 2],
+            [1, 2, 1, 2]
         ],
         "downsampling_preconv_out_channels": 32,
         "downsampling_out_channels": [128, 128, 256, 512],
